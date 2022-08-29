@@ -1,0 +1,106 @@
+{
+    "@odata.type": "Microsoft.Dynamics.CRM.EntityMetadata",
+    "DataProviderId": "<GUID>",
+    "DataSourceId": "<GUID>",
+    "Attributes": [
+        {
+            "AttributeTypeName": {
+                "Value": "DecimalType"
+            },
+            "Description": {
+                "@odata.type": "Microsoft.Dynamics.CRM.Label",
+                "LocalizedLabels": []
+            },
+            "DisplayName": {
+                "@odata.type": "Microsoft.Dynamics.CRM.Label",
+                "LocalizedLabels": [
+                    {
+                        "@odata.type": "Microsoft.Dynamics.CRM.LocalizedLabel",
+                        "Label": "Value",
+                        "LanguageCode": 1033
+                    }
+                ]
+            },
+            "IsPrimaryName": false,
+            "IsPrimaryId": false,
+            "ExternalName": "Value",
+            "RequiredLevel": {
+                "Value": "None",
+                "CanBeChanged": true,
+                "ManagedPropertyLogicalName": "canmodifyrequirementlevelsettings"
+            },
+            "SchemaName": "new_value",
+            "@odata.type": "Microsoft.Dynamics.CRM.DecimalAttributeMetadata"
+        },
+        {
+            "AttributeTypeName": {
+                "Value": "StringType"
+            },
+            "Description": {
+                "@odata.type": "Microsoft.Dynamics.CRM.Label",
+                "LocalizedLabels": []
+            },
+            "DisplayName": {
+                "@odata.type": "Microsoft.Dynamics.CRM.Label",
+                "LocalizedLabels": [
+                    {
+                        "@odata.type": "Microsoft.Dynamics.CRM.LocalizedLabel",
+                        "Label": "Name",
+                        "LanguageCode": 1033
+                    }
+                ]
+            },
+            "IsPrimaryName": true,
+            "IsPrimaryId": false,
+            "ExternalName": "Name",
+            "RequiredLevel": {
+                "Value": "None",
+                "CanBeChanged": true,
+                "ManagedPropertyLogicalName": "canmodifyrequirementlevelsettings"
+            },
+            "SchemaName": "new_name",
+            "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+            "FormatName": {
+                "Value": "Text"
+            },
+            "MaxLength": 128
+        }
+    ],
+    "DisplayCollectionName": {
+        "@odata.type": "Microsoft.Dynamics.CRM.Label",
+        "LocalizedLabels": [
+            {
+                "@odata.type": "Microsoft.Dynamics.CRM.LocalizedLabel",
+                "Label": "Metrics",
+                "LanguageCode": 1033
+            }
+        ]
+    },
+    "DisplayName": {
+        "@odata.type": "Microsoft.Dynamics.CRM.Label",
+        "LocalizedLabels": [
+            {
+                "@odata.type": "Microsoft.Dynamics.CRM.LocalizedLabel",
+                "Label": "Metric",
+                "LanguageCode": 1033
+            }
+        ]
+    },
+    "CanChangeTrackingBeEnabled": {
+        "Value": false,
+        "CanBeChanged": false,
+        "ManagedPropertyLogicalName": "canchangetrackingbeenabled"
+    },
+    "CanCreateCharts": {
+        "Value": false,
+        "CanBeChanged": true,
+        "ManagedPropertyLogicalName": "cancreatecharts"
+    },
+    "HasActivities": false,
+    "HasNotes": false,
+    "IsActivity": false,
+    "OwnershipType": "OrganizationOwned",
+    "SchemaName": "new_metric",
+    "ExternalName": "Metric",
+    "ExternalCollectionName": "Metric"
+}
