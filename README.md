@@ -34,7 +34,7 @@ If you already have a data lake in place you can skip section a) and continue wi
 
 a. Go to `portal.azure.com`, click on "Create a resource", type and select "Storage account". Select the appropriate name and configurations, make sure that you set the option "Enable hierarchical namespace" in the Advanced option. Review and create the storage account. After creation finished, go to "Containers" and add a container with a name of your choice.
 
-<img src="assets/datalake_creation.png" width="800">
+<img src="assets/datalake_creation.png" width="500">
 
 b. In your storage account, go to "Access Control (IAM)" and click on "Add" > "Add role assignment". Type and select "Storage Account Contributor" > Next > "+ Select Members" and type the name of the app you created in step 1. This will allow the service principal to access the storage account and read and write data.
 
@@ -74,7 +74,7 @@ b. Open the `MetricProvider.sln` file under `src/` and switch to `Connection.cs`
 
 c. In the Visual Studio Solution Explorer right click on "MetricProvider" > "Properties" > "Signing" and click on "Sign the assembly". Select an existing key or create a new one. Note, that the assembly must be signed, otherwise the subsequent steps will fail.
 
-<img src="assets/signing.png" width="800">
+<img src="assets/signing.png" width="500">
 
 d. Right click on "Metric Provider" > "Build". This will create a .dll file in the `bin/` folder.
 
