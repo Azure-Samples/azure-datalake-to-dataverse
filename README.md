@@ -38,10 +38,16 @@ a. Go to `portal.azure.com`, click on "Create a resource", type and select "Stor
 
 b. In your storage account, go to "Access Control (IAM)" and click on "Add" > "Add role assignment". Type and select "Storage Account Contributor" > Next > "+ Select Members" and type the name of the app you created in step 1. This will allow the service principal to access the storage account and read and write data.
 
-c. We now add sample data to the storage account by using the helper script. NOTE: Don't use the Azure Portal to add sample data, otherwise the plugin tool will fail to write or update this file later on. Open a command prompt/shell, change directory to `scripts/` and execute the following command after replacing the dummy values:
+c. We now add sample data to the storage account by using the helper script. NOTE: Don't use the Azure Portal to add sample data, otherwise the plugin tool will fail to write or update this file later on. Open a shell/bash, change directory to `scripts/` and log into Azure using the service principal credentials:
 
 ```
-python helper.py datalake sampledata --aad_tenant <AAD tenant name> --aad_client_id <AAD app registration client ID> --aad_client_secret <AAD client secret> --datalake_name <name of your datalake> --datalake_container_name <name of data lake container>
+read -sp "Client secret: " AZ_PASS && echo && az login --service-principal -u <AAD app registration client ID> -p $AZ_PASS --tenant <AAD tenant id>
+```
+
+When asked, enter the client secret. Then execute the following command after replacing the dummy values:
+
+```
+python helper.py datalake sampledata --datalake_name <name of your datalake> --datalake_container_name <name of data lake container>
 ```
 
 This will create a file metrics.csv in the root folder of your container with the following content.
@@ -107,7 +113,7 @@ b. Select the newly created user and click "Edit security roles", enable the "Da
 c. The final step is creating the actual virtual table. For doing so we make use of the helper script again. Switch to the scripts/ folder and run the following command:
 
 ```
-python helper.py dataverse virtualtable --aad_tenant <AAD tenant name> --aad_client_id <AAD app registration client ID> --aad_client_secret <AAD client secret> --power_apps_org <Power Platform environment name> --publisher <Power Platform publisher name> --provider_name MetricDP --datasource_name MetricDatasource
+python helper.py dataverse virtualtable --power_apps_org <Power Platform environment name> --publisher <Power Platform publisher name> --provider_name MetricDP --datasource_name MetricDatasource
 ```
 
 This should create a new table "Metric" in Dataverse. We should now be able to see the content of the metric.csv file from Azure Data Lake in dataverse.

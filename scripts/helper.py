@@ -1,4 +1,5 @@
 from importlib.metadata import files
+from azure.identity import AzureCliCredential
 import sys
 import os
 import json
@@ -7,22 +8,58 @@ import argparse
 from typing import List
 from urllib.parse import urljoin
 from functools import reduce
+import base64
+import json
 
 
 class AzureDataLakeHandler:
-    def __init__(self, tenant, client_id, client_secret, data_lake_name):
-        self._tenant = tenant
-        self._client_id = client_id
-        self._client_secret = client_secret
+    """
+    Class to handle access to Azure Data Lake. Primarely used to create files in a set data lake filesystem
+    """
+
+    def __init__(self, data_lake_name, tenant=None, client_id=None, client_secret=None):
         self._base_url = f"https://{data_lake_name}.dfs.core.windows.net/"
         self._scope = self._base_url + ".default"
-        self._token = self._get_token()
+
+        if client_secret is None:
+            credentials = self._get_credentials_cli(self._scope)
+            self._tenant = credentials["tenant"]
+            self._client_id = credentials["client_id"]
+            self._token = credentials["token"]
+        else:
+            self._tenant = tenant
+            self._client_id = client_id
+            self._client_secret = client_secret
+            self._token = self._get_token(self._scope)
+
         self._headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._token}",
         }
 
-    def _get_token(self):
+    def _get_credentials_cli(self, scope) -> str:
+        """
+        Helper function to get a bearer token using the active Azure CLI login session
+        """
+        credential = AzureCliCredential()
+        res = credential.get_token(scope)
+        parsed_token = base64.b64decode(
+            res.token.split(".")[1] + "=" * (-len(res.token.split(".")[1]) % 4)
+        )
+        payload = json.loads(parsed_token)
+        tenant_parts = payload["iss"].split("/")
+        tenant = tenant_parts[len(tenant_parts) - 2]
+        credentials = {
+            "tenant": tenant,
+            "client_id": payload["appid"],
+            "token": res.token,
+        }
+        return credentials
+
+    def _get_token(self, scope) -> str:
+        """
+        Helper function to get a bearer token when a client ID and client secret were passed
+        """
         token_url = (
             f"https://login.microsoftonline.com/{self._tenant}/oauth2/v2.0/token"
         )
@@ -31,7 +68,7 @@ class AzureDataLakeHandler:
             "grant_type": "client_credentials",
             "client_id": self._client_id,
             "client_secret": self._client_secret,
-            "scope": self._scope,
+            "scope": scope,
         }
 
         res = requests.post(token_url, data=post_data)
@@ -40,11 +77,14 @@ class AzureDataLakeHandler:
         data = res.json()
         return data["access_token"]
 
-    def create_basic_metrics_file(self, filesystem, path="/", filename="metrics.csv"):
+    def create_basic_metrics_file(
+        self, filesystem, path="/", filename="metrics.csv"
+    ) -> None:
         base_url = self._base_url + filesystem + path + filename
         create_url = base_url + "?resource=file&position=0"
-
-        res = requests.put(create_url, headers=self._headers)
+        res = requests.put(
+            create_url, headers=self._headers
+        )  # First an empty file is created in data lake
 
         if int(res.status_code / 100) != 2:
             raise Exception(res.text)
@@ -52,27 +92,40 @@ class AzureDataLakeHandler:
         content = 'MetricId,Name,Value\n"bbb9792d-9fbf-45d5-88e5-dce2acd4924c","AverageTripDuration",26.1\n"1cb4e68d-6ee3-4b1b-b90b-a1e49daeef03","LongestTrip",180.5\n"262bd819-8eaa-44c8-96f8-eced6874cba1","WeekendWeekdayRatio",0.45\n'
 
         patch_url = base_url + "?action=append&position=0"
-        res = requests.patch(patch_url, data=content, headers=self._headers)
+        res = requests.patch(
+            patch_url, data=content, headers=self._headers
+        )  # Here a file is set ready to be appended - it is not actually appended before the flush action is called
 
         if int(res.status_code / 100) != 2:
             raise Exception(res.text)
 
         content_length = len(content)
         flush_url = base_url + f"?action=flush&position={content_length}"
-        res = requests.patch(flush_url, headers=self._headers)
+        res = requests.patch(
+            flush_url, headers=self._headers
+        )  # Finising the file append process by flushing to the file
 
         if int(res.status_code / 100) != 2:
             raise Exception(res.text)
 
 
 class DataverseHandler:
-    def __init__(self, tenant, client_id, client_secret, power_apps_org, publisher):
+    """
+    Class to manage access to Power Platform and Dataverse.
+    """
+
+    def __init__(
+        self,
+        power_apps_org,
+        publisher,
+        tenant=None,
+        client_id=None,
+        client_secret=None,
+        schema_folder_path=None,
+    ):
         """
         Helps to create Dataverse objects like choices, tables, relationships
         """
-        self.tenant = tenant
-        self.client_id = client_id
-        self.client_secret = client_secret
         self.power_apps_org = power_apps_org
         self.scope = f"https://{power_apps_org}.api.crm4.dynamics.com/.default"
         self.base_url = (
@@ -85,19 +138,55 @@ class DataverseHandler:
         self.entity_definitions_url = urljoin(self.base_url, "EntityDefinitions")
         self.publisher = publisher
         self.verify_ssl = True
-        self.schema_folder_path = "./schemas"
-        self.token = self._get_token()
+        if schema_folder_path is None:
+            self.schema_folder_path = os.path.join(os.path.dirname(__file__), "schemas")
+        else:
+            self.schema_folder_path = schema_folder_path
+
+        if client_secret is None:
+            credentials = self._get_credentials_cli(self.scope)
+            self.tenant = credentials["tenant"]
+            self.client_id = credentials["client_id"]
+            self._token = credentials["token"]
+        else:
+            self.tenant = tenant
+            self.client_id = client_id
+            self.client_secret = client_secret
+            self._token = self._get_token(self.scope)
+
         self.is_running = False
         self.batch_size = 10
 
-    def _get_token(self):
+    def _get_credentials_cli(self, scope) -> str:
+        """
+        Helper function to get a bearer token using the active Azure CLI login session
+        """
+        credential = AzureCliCredential()
+        res = credential.get_token(scope)
+        parsed_token = base64.b64decode(
+            res.token.split(".")[1] + "=" * (-len(res.token.split(".")[1]) % 4)
+        )
+        payload = json.loads(parsed_token)
+        tenant_parts = payload["iss"].split("/")
+        tenant = tenant_parts[len(tenant_parts) - 2]
+        credentials = {
+            "tenant": tenant,
+            "client_id": payload["appid"],
+            "token": res.token,
+        }
+        return credentials
+
+    def _get_token(self, scope) -> str:
+        """
+        Helper function to get a bearer token when a client ID and client secret were passed
+        """
         token_url = f"https://login.microsoftonline.com/{self.tenant}/oauth2/v2.0/token"
 
         post_data = {
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": self.scope,
+            "scope": scope,
         }
 
         res = requests.post(token_url, data=post_data, verify=self.verify_ssl)
@@ -106,7 +195,7 @@ class DataverseHandler:
         data = res.json()
         return data["access_token"]
 
-    def _change_schema(self, schema, change_function):
+    def _change_schema(self, schema, change_function) -> None:
         """
         This method can be used to change the schema, for example
         by injecting prefixes to certain attributes
@@ -134,14 +223,17 @@ class DataverseHandler:
                         schemas.append((name, schema))
         return schemas
 
-    def create_virtual_table(self, provider_uuid, datasource_uuid):
+    def create_virtual_table(self, provider_uuid, datasource_uuid) -> None:
+        """
+        Creates a virtual table in Dataverse based on a JSON definition file
+        """
         filename, schema = self._load_definitions(
             self.schema_folder_path, "virtualtable.json"
         )[0]
 
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
+            "Authorization": f"Bearer {self._token}",
         }
 
         def changes(key, value):
@@ -157,10 +249,13 @@ class DataverseHandler:
         if int(res.status_code / 100) != 2:
             print(res.text)
 
-    def get_entitydatasourceid_by_name(self, datasource_name):
+    def get_entitydatasourceid_by_name(self, datasource_name) -> str:
+        """
+        Returns the entitydatasourceid property of Dynamics based on the name of the data source
+        """
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
+            "Authorization": f"Bearer {self._token}",
         }
 
         res = requests.get(self.datasource_url, headers=headers)
@@ -175,10 +270,13 @@ class DataverseHandler:
 
         return datasource_id
 
-    def get_entitydataproviderid_by_name(self, provider_name):
+    def get_entitydataproviderid_by_name(self, provider_name) -> str:
+        """
+        Returns the entitydataproviderid property of Dynamics based on the name of the data provider
+        """
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
+            "Authorization": f"Bearer {self._token}",
         }
         res = requests.get(self.providers_url, headers=headers)
 
@@ -206,18 +304,18 @@ if __name__ == "__main__":
     dataverse_parser = subparsers.add_parser("dataverse")
 
     datalake_parser.add_argument("type", choices=["sampledata"])
-    datalake_parser.add_argument("--aad_tenant", "-t", type=str, required=True)
-    datalake_parser.add_argument("--aad_client_id", "-i", type=str, required=True)
-    datalake_parser.add_argument("--aad_client_secret", "-s", type=str, required=True)
+    datalake_parser.add_argument("--aad_tenant", "-t", type=str, required=False)
+    datalake_parser.add_argument("--aad_client_id", "-i", type=str, required=False)
+    datalake_parser.add_argument("--aad_client_secret", "-s", type=str, required=False)
     datalake_parser.add_argument("--datalake_name", "-d", type=str, required=True)
     datalake_parser.add_argument(
-        "--datalake_container_name", "-c", type=str, required=False
+        "--datalake_container_name", "-c", type=str, required=True
     )
 
     dataverse_parser.add_argument("type", choices=["virtualtable"])
-    dataverse_parser.add_argument("--aad_tenant", "-t", type=str, required=True)
-    dataverse_parser.add_argument("--aad_client_id", "-i", type=str, required=True)
-    dataverse_parser.add_argument("--aad_client_secret", "-s", type=str, required=True)
+    dataverse_parser.add_argument("--aad_tenant", "-t", type=str, required=False)
+    dataverse_parser.add_argument("--aad_client_id", "-i", type=str, required=False)
+    dataverse_parser.add_argument("--aad_client_secret", "-s", type=str, required=False)
     dataverse_parser.add_argument("--power_apps_org", "-o", type=str, required=True)
     dataverse_parser.add_argument(
         "--publisher",
@@ -233,10 +331,10 @@ if __name__ == "__main__":
 
     if sys.argv[1] == "datalake":
         adlh = AzureDataLakeHandler(
+            args.datalake_name,
             args.aad_tenant,
             args.aad_client_id,
             args.aad_client_secret,
-            args.datalake_name,
         )
         if args.type == "sampledata":
             adlh.create_basic_metrics_file(args.datalake_container_name)
@@ -244,11 +342,11 @@ if __name__ == "__main__":
             print(f"Invalid command {sys.argv[1]}")
     elif sys.argv[1] == "dataverse":
         dvf = DataverseHandler(
+            args.power_apps_org,
+            args.publisher,
             args.aad_tenant,
             args.aad_client_id,
             args.aad_client_secret,
-            args.power_apps_org,
-            args.publisher,
         )
         if args.type == "virtualtable":
             provider_uuid = dvf.get_entitydataproviderid_by_name(args.provider_name)
