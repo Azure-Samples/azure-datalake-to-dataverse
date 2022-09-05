@@ -51,7 +51,9 @@ NOTE: If you get an error message here, make sure to upgrade to the latest CLI v
 Finally give the app the permission to access Dynamics:
 
 ```
-az ad app permission add --id <app id> --api 00000007-0000-0000-c000-000000000000 --api-permissions 78ce3f0f-a1ce-49c2-8cde-64b5c0896db4=Scope
+az ad app permission add --id <app id> \
+--api 00000007-0000-0000-c000-000000000000 \
+--api-permissions 78ce3f0f-a1ce-49c2-8cde-64b5c0896db4=Scope
 ```
 
 `78ce3f0f-a1ce-49c2-8cde-64b5c0896db4` is the ID of the user_impersonation permission of the Dynamics CRM API.
@@ -63,7 +65,8 @@ If you already have a data lake in place you can skip section a) and continue wi
 a. Open a command prompt and type the following:
 
 ```
-az storage account create --name <data lake name> --resource-group <resource group name> --enable-hierarchical-namespace true
+az storage account create --name <data lake name> --resource-group <resource group name> \
+--enable-hierarchical-namespace true
 ```
 
 This will create an Azure Data Lake Storage Gen2 account. Afterwards create a file system with
@@ -75,13 +78,16 @@ az storage fs create -n <container name> --account-name <data lake name>
 b. We now add a "Storage Blob Data Contributor" role assignment for the service principal we created in step 1 to access the data lake. We need the full resource ID of the data lake, afterwards type
 
 ```
-az role assignment create --assignee <app id> --role "Storage Blob Data Contributor" --scope "/subscriptions/<subscription name>/resourceGroups/<resourcegroup name>/providers/Microsoft.Storage/storageAccounts/<datalake name>"
+az role assignment create --assignee <app id> --role "Storage Blob Data Contributor" \
+--scope "/subscriptions/<subscription name>/resourceGroups/<resourcegroup name>/providers/Microsoft.Storage/storageAccounts/<datalake name>"
 ```
 
 c. Next we create sample data in the storage account by using the helper script. NOTE: Don't use the Azure Portal to add sample data, otherwise the plugin tool will fail to write or update this file later on. Open a shell/bash, change directory to `scripts/` and log into Azure using the service principal credentials:
 
 ```
-read -sp "Client secret: " AZ_PASS && echo && az login --service-principal -u <AAD app registration client ID> -p $AZ_PASS --tenant <AAD tenant id>
+read -sp "Client secret: " AZ_PASS && echo && az login --service-principal \
+-u <AAD app registration client ID> -p $AZ_PASS \
+--tenant <AAD tenant id>
 ```
 
 When asked, enter the client secret. Then execute the following command after replacing the dummy values:
