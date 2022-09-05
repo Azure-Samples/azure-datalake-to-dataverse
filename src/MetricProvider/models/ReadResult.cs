@@ -8,7 +8,7 @@ namespace MetricProvider.models
 {
     public class ReadResult
     {
-        public List<string> keys { get; set; }
-        public List<List<string>> values { get; set; }
+        public IList<string> keys { get; set; }
+        public IList<List<string>> values { get; set; }
     }
 }

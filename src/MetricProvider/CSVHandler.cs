@@ -2,11 +2,8 @@
 using MetricProvider.models;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MetricProvider
@@ -14,13 +11,13 @@ namespace MetricProvider
     public class CSVHandler : IHandler
     {
         private bool skipHeader;
-        private char delimiter;
-        private HttpClient httpClient;
+        private readonly char delimiter;
+        private readonly HttpClient httpClient;
         public CSVHandler(bool skipHeader = false, char delimiter = ',')
         {
             this.skipHeader = skipHeader;
             this.delimiter = delimiter;
-            this.httpClient = new HttpClient();
+            httpClient = new HttpClient();
         }
 
         private string ReadResultToCSV(ReadResult res)
@@ -28,25 +25,24 @@ namespace MetricProvider
             string content = "";
             foreach(string key in res.keys)
             {
-                content += key + this.delimiter.ToString();
+                content += key + delimiter.ToString();
             }
-            content = content.Substring(0, content.LastIndexOf(this.delimiter.ToString())) + "\n";
+            content = content.Substring(0, content.LastIndexOf(delimiter.ToString())) + "\n";
 
             foreach (List<string> value in res.values)
             {
                 for (int i = 0; i < res.keys.Count; i++)
                 {
-                    Decimal dec;
-                    if (Decimal.TryParse(value[i], out dec))
+                    if (decimal.TryParse(value[i], out decimal dec))
                     {
-                        content += value[i] + this.delimiter;
+                        content += value[i] + delimiter;
                     }
                     else
                     {
-                        content += "\"" + value[i] + "\"" + this.delimiter;
+                        content += "\"" + value[i] + "\"" + delimiter;
                     }
                 }
-                content = content.Substring(0, content.LastIndexOf(this.delimiter.ToString())) + "\n";
+                content = content.Substring(0, content.LastIndexOf(delimiter.ToString())) + "\n";
             }
 
             return content;
@@ -54,9 +50,9 @@ namespace MetricProvider
 
         private async Task CreateFile(string path, string content, string accessToken)
         {
-            this.httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await this.httpClient.PutAsync(path + "?resource=file&position=0", null);
+            HttpResponseMessage response = await httpClient.PutAsync(path + "?resource=file&position=0", null);
 
             try
             {
@@ -67,9 +63,11 @@ namespace MetricProvider
                 throw new Exception(response.ReasonPhrase);
             }
 
-            var request = new HttpRequestMessage(new HttpMethod("PATCH"), path + $"?action=append&position=0");
-            request.Content = new StringContent(content);
-            response = await this.httpClient.SendAsync(request);
+            HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("PATCH"), path + $"?action=append&position=0")
+            {
+                Content = new StringContent(content)
+            };
+            response = await httpClient.SendAsync(request);
 
             try
             {
@@ -82,7 +80,7 @@ namespace MetricProvider
 
             int contentLength = content.Length;
             request = new HttpRequestMessage(new HttpMethod("PATCH"), path + $"?action=flush&position={contentLength}");
-            response = await this.httpClient.SendAsync(request);
+            response = await httpClient.SendAsync(request);
 
             try
             {
@@ -95,9 +93,9 @@ namespace MetricProvider
 
         }
 
-        public async Task Update(string path, Guid id, List<string> elements, string accessToken)
+        public async Task Update(string path, Guid id, IList<string> elements, string accessToken)
         {
-            this.httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             ReadResult res = await Read(path, accessToken);
 
             foreach (List<string> value in res.values)
@@ -129,7 +127,7 @@ namespace MetricProvider
         }
         public async Task Delete(string path, Guid id, string accessToken)
         {
-            this.httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             ReadResult res = await Read(path, accessToken);
 
             for (int j = res.values.Count - 1; j >= 0; j--)
@@ -151,9 +149,9 @@ namespace MetricProvider
             await CreateFile(path, content, accessToken);
         }
 
-        public async Task Write(string path, List<string> elements, string accessToken)
+        public async Task Write(string path, IList<string> elements, string accessToken)
         {
-            this.httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             int fileLength = await GetFileLength(path, accessToken);
 
@@ -161,21 +159,22 @@ namespace MetricProvider
 
             foreach(string element in elements)
             {
-                Decimal dec;
-                if (Decimal.TryParse(element, out dec))
+                if (decimal.TryParse(element, out decimal dec))
                 {
-                    row += element + this.delimiter;
+                    row += element + delimiter;
                 }
                 else
                 {
-                    row += "\"" + element + "\"" + this.delimiter;
+                    row += "\"" + element + "\"" + delimiter;
                 }
             }
-            row = row.Substring(0, row.LastIndexOf(this.delimiter.ToString())) + "\n";
+            row = row.Substring(0, row.LastIndexOf(delimiter.ToString())) + "\n";
 
-            var request = new HttpRequestMessage(new HttpMethod("PATCH"), path + $"?action=append&position={fileLength}");
-            request.Content = new StringContent(row);
-            var response = await this.httpClient.SendAsync(request);
+            HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("PATCH"), path + $"?action=append&position={fileLength}")
+            {
+                Content = new StringContent(row)
+            };
+            HttpResponseMessage response = await httpClient.SendAsync(request);
 
             try
             {
@@ -188,7 +187,7 @@ namespace MetricProvider
 
             int newLength = row.Length + fileLength;
             request = new HttpRequestMessage(new HttpMethod("PATCH"), path + $"?action=flush&position={newLength}");
-            response = await this.httpClient.SendAsync(request);
+            response = await httpClient.SendAsync(request);
 
             try
             {
@@ -203,9 +202,9 @@ namespace MetricProvider
 
         public async Task<int> GetFileLength(string path, string accessToken)
         {
-            this.httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await httpClient.GetAsync(path);
+            HttpResponseMessage response = await httpClient.GetAsync(path);
             try
             {
                 response.EnsureSuccessStatusCode();
@@ -220,12 +219,12 @@ namespace MetricProvider
 
         public async Task<ReadResult> Read(string path, string accessToken)
         {
-            List<List<string>> values = new List<List<string>>();
-            List<string> keys = new List<string>();
+            IList<List<string>> values = new List<List<string>>();
+            IList<string> keys = new List<string>();
             ReadResult result = new ReadResult();
-            this.httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await httpClient.GetAsync(path);
+            HttpResponseMessage response = await httpClient.GetAsync(path);
             try
             {
                 response.EnsureSuccessStatusCode();
@@ -242,7 +241,7 @@ namespace MetricProvider
                 {
                     continue;
                 }
-                var val = line.Replace("\"", "").Split(delimiter);
+                string[] val = line.Replace("\"", "").Split(delimiter);
                 if (!skipHeader)
                 {
                     foreach (string value in val)

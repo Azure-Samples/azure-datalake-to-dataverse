@@ -95,7 +95,8 @@ When asked, enter the client secret. Then execute the following command after re
 NOTE: You must have the Azure Identity package installed: `pip install azure-identity`.
 
 ```
-python helper.py datalake sampledata --datalake_name <name of your datalake> --datalake_container_name <name of data lake container>
+python helper.py datalake sampledata --datalake_name <name of your datalake> \
+--datalake_container_name <name of data lake container>
 ```
 
 This will create a file metrics.csv in the root folder of your container with the following content.
@@ -161,7 +162,9 @@ b. Select the newly created user and click "Edit security roles", enable the "Da
 c. The final step is creating the actual virtual table. For doing so we make use of the helper script again. Switch to the scripts/ folder and run the following command:
 
 ```
-python helper.py dataverse virtualtable --power_apps_org <Power Platform environment name> --publisher <Power Platform publisher name> --provider_name MetricDP --datasource_name MetricDatasource
+python helper.py dataverse virtualtable --power_apps_org <Power Platform environment name> \
+--publisher <Power Platform publisher name> --provider_name MetricDP \
+--datasource_name MetricDatasource
 ```
 
 This should create a new table "Metric" in Dataverse. We should now be able to see the content of the metric.csv file from Azure Data Lake in dataverse.

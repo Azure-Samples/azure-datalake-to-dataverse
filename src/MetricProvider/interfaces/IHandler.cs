@@ -10,8 +10,8 @@ namespace MetricProvider.interfaces
     public interface IHandler
     {
         Task<ReadResult> Read(string filePath, string accessToken);
-        Task Write(string filePath, List<string> elements, string accessToken);
-        Task Update(string filePath, Guid id, List<string> elements, string accessToken);
+        Task Write(string filePath, IList<string> elements, string accessToken);
+        Task Update(string filePath, Guid id, IList<string> elements, string accessToken);
         Task Delete(string filePath, Guid id, string accessToken);
     }
 }
