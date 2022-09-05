@@ -9,6 +9,7 @@ This sample demonstrates how an Azure Data Lake file can be synced to a Datavers
 The following requirements must be met in order to follow the steps below
 
 - Access to an Azure subscription
+- Azure CLI installed
 - Visual Studio IDE
 - .NET Framework 4.7.1 must be installed
 - Access to Power Platform (and sufficient permissions to create solutions and tables)
@@ -20,31 +21,72 @@ The following requirements must be met in order to follow the steps below
 
 The service principal created in this step will be used by the Dynamics custom virtual table provider to access the data lake as well as the helper scripts to create a virtual table in Power Platform.
 
-a. Login to `portal.azure.com` and switch to "Azure Active Directory" > "App registration" > "New registration". Add a name and click "Register.
+Open a command prompt an log into Azure
 
-b. In the newly created app in the "Overview" tab note down the "Application (client) ID" and the "Directory (tenant) ID". Then switch to "Certificates & secrets", create a new client secret and note it down as well.
+```
+az login
+```
 
-c. Switch to "API permissions" > "Add a permission" > "Dynamics CRM" > select "user_impersonation" and click "Add permissions". The permission page should now look like the following:
+Then create a new app registration
 
-<img src="assets/aad-sp.png" width="800">
+```
+az ad app create --display-name <app name>
+```
+
+The response will contain the app id. Use it in the next step to create an associated service principal
+
+```
+az ad sp create --id <app id>
+```
+
+And an app secret:
+
+```
+az ad app credential reset --id <app id> --display-name Default --append
+```
+
+Write down the password (client secret) you get back.
+NOTE: If you get an error message here, make sure to upgrade to the latest CLI version.
+
+Finally give the app the permission to access Dynamics:
+
+```
+az ad app permission add --id <app id> --api 00000007-0000-0000-c000-000000000000 --api-permissions 78ce3f0f-a1ce-49c2-8cde-64b5c0896db4=Scope
+```
+
+`78ce3f0f-a1ce-49c2-8cde-64b5c0896db4` is the ID of the user_impersonation permission of the Dynamics CRM API.
 
 ### 2. Azure Data Lake & sample data
 
 If you already have a data lake in place you can skip section a) and continue with b).
 
-a. Go to `portal.azure.com`, click on "Create a resource", type and select "Storage account". Select the appropriate name and configurations, make sure that you set the option "Enable hierarchical namespace" in the Advanced option. Review and create the storage account. After creation finished, go to "Containers" and add a container with a name of your choice.
+a. Open a command prompt and type the following:
 
-<img src="assets/datalake_creation.png" width="500">
+```
+az storage account create --name <data lake name> --resource-group <resource group name> --enable-hierarchical-namespace true
+```
 
-b. In your storage account, go to "Access Control (IAM)" and click on "Add" > "Add role assignment". Type and select "Storage Account Contributor" > Next > "+ Select Members" and type the name of the app you created in step 1. This will allow the service principal to access the storage account and read and write data.
+This will create an Azure Data Lake Storage Gen2 account. Afterwards create a file system with
 
-c. We now add sample data to the storage account by using the helper script. NOTE: Don't use the Azure Portal to add sample data, otherwise the plugin tool will fail to write or update this file later on. Open a shell/bash, change directory to `scripts/` and log into Azure using the service principal credentials:
+```
+az storage fs create -n <container name> --account-name <data lake name>
+```
+
+b. We now add a "Storage Blob Data Contributor" role assignment for the service principal we created in step 1 to access the data lake. We need the full resource ID of the data lake, afterwards type
+
+```
+az role assignment create --assignee <app id> --role "Storage Blob Data Contributor" --scope "/subscriptions/<subscription name>/resourceGroups/<resourcegroup name>/providers/Microsoft.Storage/storageAccounts/<datalake name>"
+```
+
+c. Next we create sample data in the storage account by using the helper script. NOTE: Don't use the Azure Portal to add sample data, otherwise the plugin tool will fail to write or update this file later on. Open a shell/bash, change directory to `scripts/` and log into Azure using the service principal credentials:
 
 ```
 read -sp "Client secret: " AZ_PASS && echo && az login --service-principal -u <AAD app registration client ID> -p $AZ_PASS --tenant <AAD tenant id>
 ```
 
 When asked, enter the client secret. Then execute the following command after replacing the dummy values:
+
+NOTE: You must have the Azure Identity package installed: `pip install azure-identity`.
 
 ```
 python helper.py datalake sampledata --datalake_name <name of your datalake> --datalake_container_name <name of data lake container>
